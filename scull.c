@@ -28,7 +28,7 @@ static void print_module(void)
 }
 
 
-static int hello_init(void)
+static int scull_init(void)
 {
     print_module( );
 
@@ -42,11 +42,11 @@ static int hello_init(void)
 
 
 
-static void hello_exit(void)
+static void scull_exit(void)
 {
     printk(KERN_ERR"exit");
 }
 
 
-module_init(hello_init);
-module_exit(hello_exit);
+module_init(scull_init);
+module_exit(scull_exit);
