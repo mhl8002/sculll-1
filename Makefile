@@ -11,7 +11,7 @@ DRIVER_AUTHOR   := "mhl8002 @ 126.com"
 DRIVER_DESC     := "linux first driver hello world"
 DRIVER_LICENSE  := "DUAL BSD/GPL"
 
-MODULE_NAME  := hello
+MODULE_NAME  := scull
 
 ifneq ($(KERNELRELEASE),)
 
