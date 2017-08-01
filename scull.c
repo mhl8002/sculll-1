@@ -43,17 +43,17 @@ static int scull_init(void)
     my_class = class_create(THIS_MODULE,"sys-my_class");
     if(IS_ERR(my_class))
     {
-        printk("err: fial in create class");
+        printk(KERN_ALERT"err: fial in create class");
         unregister_chrdev_region(dn,1);
         return -1;
     }
     else
     {
-        printk("success create class");
+        printk(KERN_ALERT"success create class");
     }
-    if(NULL == device_create(my_class,NULL,MKDEV(sculll_major,sculll_minor),NULL,"dev-sculll0"))
+    if(NULL == device_create(my_class,NULL,dn,NULL,"dev-sculll0"))
     {
-        printk("erro create device");
+        printk(KERN_ALERT"erro create device");
         class_destroy(my_class);
         unregister_chrdev_region(dn,1);
         return -1;
@@ -61,7 +61,7 @@ static int scull_init(void)
     }
     else
     {
-        printk("success create device");
+        printk(KERN_ALERT"success create device");
 
     }
 
@@ -70,13 +70,13 @@ static int scull_init(void)
     cdev.ops = &sculll_fops;
     if(cdev_add(&cdev,dn,1))
     {
+        device_destroy(my_class,dn);
+        class_destroy(my_class);
+        unregister_chrdev_region(dn,1);
         printk(KERN_ALERT "cdev add error");
     }
     else
     {
-        device_destroy(my_class,dn);
-        class_destroy(my_class);
-        unregister_chrdev_region(dn,1);
         printk(KERN_ALERT "cdev add success");
     }
 
@@ -84,8 +84,6 @@ static int scull_init(void)
 
     return 0;
 }
-
-
 
 static void scull_exit(void)
 {
