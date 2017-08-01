@@ -4,6 +4,7 @@
 #include <linux/sched.h>
 #include <linux/fs.h>
 #include <linux/cdev.h>
+#include <linux/device.h>
 //#include <linux/list.h>
 //#include <linux/mm.h>
 //#include <linux/mm_types.h>
@@ -17,6 +18,7 @@ unsigned int sculll_major=0;
 unsigned int sculll_minor=0;
 dev_t dev=0;
 struct cdev cdev;
+struct class *my_class;
 
 static struct file_operations sculll_fops={
     .owner = THIS_MODULE,
@@ -26,7 +28,7 @@ static struct file_operations sculll_fops={
 static int scull_init(void)
 {
     dev_t dn;
-    if(alloc_chrdev_region(&dev,sculll_minor,4,"scullhm"))
+    if(alloc_chrdev_region(&dev,sculll_minor,1,"proc-scull"))
     {
         printk(KERN_ALERT "register chrdev region is fail");
     }
@@ -37,21 +39,48 @@ static int scull_init(void)
     }
 
     dn = MKDEV(sculll_major,sculll_minor);
+
+    my_class = class_create(THIS_MODULE,"sys-my_class");
+    if(IS_ERR(my_class))
+    {
+        printk("err: fial in create class");
+        unregister_chrdev_region(dn,1);
+        return -1;
+    }
+    else
+    {
+        printk("success create class");
+    }
+    if(NULL == device_create(my_class,NULL,MKDEV(sculll_major,sculll_minor),NULL,"dev-sculll0"))
+    {
+        printk("erro create device");
+        class_destroy(my_class);
+        unregister_chrdev_region(dn,1);
+        return -1;
+
+    }
+    else
+    {
+        printk("success create device");
+
+    }
+
     cdev_init(&cdev,&sculll_fops);
     cdev.owner = THIS_MODULE;
     cdev.ops = &sculll_fops;
-    if(cdev_add(&cdev,dn,4))
+    if(cdev_add(&cdev,dn,1))
     {
         printk(KERN_ALERT "cdev add error");
     }
     else
     {
+        device_destroy(my_class,dn);
+        class_destroy(my_class);
+        unregister_chrdev_region(dn,1);
         printk(KERN_ALERT "cdev add success");
     }
 
-    printk(KERN_ALERT "run in cpu %d\n", get_cpu());
-
-    printk(KERN_ALERT "PAGE_OFFSET : 0x%lx, TASK_SIZE : 0x%lx", PAGE_OFFSET, TASK_SIZE);
+    printk(KERN_ALERT "register char dev ");
 
     return 0;
 }
@@ -60,7 +89,11 @@ static int scull_init(void)
 
 static void scull_exit(void)
 {
-    unregister_chrdev_region(dev,4);
+    dev_t dn = MKDEV(sculll_major,sculll_minor);
+    cdev_del(&cdev);
+    device_destroy(my_class,MKDEV(sculll_major,sculll_minor));
+    class_destroy(my_class);
+    unregister_chrdev_region(dn,1);
     printk(KERN_ERR"exit");
 }
 
