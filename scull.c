@@ -65,6 +65,8 @@ int sculll_release(void)
 
 static struct file_operations sculll_fops={
     .owner = THIS_MODULE,
+    .open = sculll_open,
+    .release = sculll_release,
 
 };
 
