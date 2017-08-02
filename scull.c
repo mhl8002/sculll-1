@@ -5,6 +5,8 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/device.h>
+#include <linux/slab.h>
+#include <asm/uaccess.h>
 //#include <linux/list.h>
 //#include <linux/mm.h>
 //#include <linux/mm_types.h>
@@ -17,8 +19,49 @@ MODULE_DESCRIPTION("test ");
 unsigned int sculll_major=0;
 unsigned int sculll_minor=0;
 dev_t dev=0;
-struct cdev cdev;
+//struct cdev cdev;
 struct class *my_class;
+
+struct sculll_dev {
+    struct scull_qset *data;
+    int quantum;
+    int qset;
+    unsigned long size;
+    unsigned int access_key;
+    struct semaphore sem;
+    struct cdev cdev;
+};
+struct sculll_dev *lll_dev;
+
+int sculll_trim(struct sculll_dev *dev)
+{
+    if(dev)
+    {
+        if(dev->data)
+        {
+            kfree(dev->data);
+        }
+        dev->data = NULL;
+        dev->size = 0;
+    }
+}
+
+int sculll_open(struct inode *inode,struct file *filp)
+{
+    struct sculll_dev *dev;
+    dev = container_of(inode->i_cdev,struct sculll_dev,cdev);
+    filp->private_data = dev;
+    if((filp->f_flags & O_ACCMODE)==O_WRONLY)
+    {
+        sculll_trim(dev);
+    }
+    return 0;
+}
+
+int sculll_release(void)
+{
+    return 0;
+}
 
 static struct file_operations sculll_fops={
     .owner = THIS_MODULE,
@@ -62,13 +105,12 @@ static int scull_init(void)
     else
     {
         printk(KERN_ALERT"success create device");
-
     }
 
-    cdev_init(&cdev,&sculll_fops);
-    cdev.owner = THIS_MODULE;
-    cdev.ops = &sculll_fops;
-    if(cdev_add(&cdev,dn,1))
+    cdev_init(&lll_dev->cdev,&sculll_fops);
+    lll_dev->cdev.owner = THIS_MODULE;
+    lll_dev->cdev.ops = &sculll_fops;
+    if(cdev_add(&lll_dev->cdev,dn,1))
     {
         device_destroy(my_class,dn);
         class_destroy(my_class);
@@ -88,7 +130,7 @@ static int scull_init(void)
 static void scull_exit(void)
 {
     dev_t dn = MKDEV(sculll_major,sculll_minor);
-    cdev_del(&cdev);
+    cdev_del(&lll_dev->cdev);
     device_destroy(my_class,MKDEV(sculll_major,sculll_minor));
     class_destroy(my_class);
     unregister_chrdev_region(dn,1);
