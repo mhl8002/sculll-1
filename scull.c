@@ -45,6 +45,7 @@ struct sculll_qset *sculll_follow(struct sculll_dev *dev,int n)
 {
     struct sculll_qset *qs = dev->data;
 
+    printk(KERN_ALERT "%s,%s ",__FILE__,__FUNCTION__);
     if(!qs)
     {
         qs = dev->data = kmalloc(sizeof(struct sculll_qset),GFP_KERNEL);
@@ -72,6 +73,7 @@ int sculll_trim(struct sculll_dev *dev)
     struct sculll_qset *next,*dptr;
     int qset = dev->qset;
     int i;
+    printk(KERN_ALERT "%s,%s ",__FILE__,__FUNCTION__);
     for(dptr = dev->data;dptr;dptr = next)
     {
         if(dptr->data)
@@ -100,6 +102,7 @@ ssize_t sculll_read(struct file *filp,char __user *buf,size_t count,loff_t *f_op
     int itemsize = quantum * qset;
     int item,s_pos,q_pos,rest;
     ssize_t retval = 0;
+    printk(KERN_ALERT "%s,%s ",__FILE__,__FUNCTION__);
     if(down_interruptible(&dev->sem))
         return -ERESTARTSYS;
     if(*f_ops >= dev->size)
@@ -133,7 +136,7 @@ out:
 }
 
 
-ssize_t scull_write(struct file * filp , const char __user *buf,size_t count,loff_t *f_ops)
+ssize_t sculll_write(struct file * filp , const char __user *buf,size_t count,loff_t *f_ops)
 {
     struct sculll_dev *dev = filp->private_data;
     struct sculll_qset *dptr;
@@ -141,6 +144,7 @@ ssize_t scull_write(struct file * filp , const char __user *buf,size_t count,lof
     int itemsize = quantum*qset;
     int item,s_pos,q_pos,rest;
     ssize_t retval = -ENOMEM;
+    printk(KERN_ALERT "%s,%s ",__FILE__,__FUNCTION__);
     if(down_interruptible(&dev->sem))
         return -ERESTARTSYS;
     item = (long)*f_ops / itemsize;
@@ -156,36 +160,38 @@ ssize_t scull_write(struct file * filp , const char __user *buf,size_t count,lof
         if(!dptr->data)
             goto out;
         memset(dptr->data ,0,qset * sizeof(char *));
-
-        if(!dptr->data[s_pos])
-        {
-            dptr->data[s_pos] = kmalloc(quantum, GFP_KERNEL);
-            if(!dptr->data[s_pos])
-                goto out;
-        }
-        if(count > quantum - q_pos)
-            count = quantum - q_pos;
-        if(copy_from_user(dptr->data[s_pos]+q_pos,buf,count))
-        {
-            retval = -EFAULT;
-            goto out;
-        }
-        *f_ops += count;
-        retval = count;
-
-        if(dev->size < *f_ops)
-            dev->size = *f_ops;
-out:
-        up(&dev->sem);
-        return retval;
     }
+
+    if(!dptr->data[s_pos])
+    {
+        dptr->data[s_pos] = kmalloc(quantum, GFP_KERNEL);
+        if(!dptr->data[s_pos])
+            goto out;
+    }
+    if(count > quantum - q_pos)
+        count = quantum - q_pos;
+    if(copy_from_user(dptr->data[s_pos]+q_pos,buf,count))
+    {
+        retval = -EFAULT;
+        goto out;
+    }
+    *f_ops += count;
+    retval = count;
+
+    if(dev->size < *f_ops)
+        dev->size = *f_ops;
+out:
+    up(&dev->sem);
+    return retval;
 }
 
 int sculll_open(struct inode *inode,struct file *filp)
 {
     struct sculll_dev *dev;
+    printk(KERN_ALERT "%s,%s ",__FILE__,__FUNCTION__);
     dev = container_of(inode->i_cdev,struct sculll_dev,cdev);
     filp->private_data = dev;
+    printk(KERN_ALERT "sculll_open ");
     if((filp->f_flags & O_ACCMODE)==O_WRONLY)
     {
         sculll_trim(dev);
@@ -195,6 +201,7 @@ int sculll_open(struct inode *inode,struct file *filp)
 
 int sculll_release(void)
 {
+    printk(KERN_ALERT "%s,%s ",__FILE__,__FUNCTION__);
     return 0;
 }
 
@@ -202,12 +209,15 @@ static struct file_operations sculll_fops={
     .owner = THIS_MODULE,
     .open = sculll_open,
     .release = sculll_release,
+    .read = sculll_read,
+    .write = sculll_write,
 
 };
 
 static int scull_init(void)
 {
     dev_t dn;
+    printk(KERN_ALERT "%s,%s ",__FILE__,__FUNCTION__);
     if(alloc_chrdev_region(&dev,sculll_minor,1,"proc-scull"))
     {
         printk(KERN_ALERT "register chrdev region is fail");
@@ -267,6 +277,7 @@ static int scull_init(void)
 static void scull_exit(void)
 {
     dev_t dn = MKDEV(sculll_major,sculll_minor);
+    printk(KERN_ALERT "%s,%s ",__FILE__,__FUNCTION__);
     cdev_del(&lll_dev->cdev);
     device_destroy(sculll_class,MKDEV(sculll_major,sculll_minor));
     class_destroy(sculll_class);
