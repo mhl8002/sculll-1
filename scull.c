@@ -11,13 +11,12 @@
 //#include <linux/mm.h>
 //#include <linux/mm_types.h>
 
-
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("mhl ");
 MODULE_DESCRIPTION("test ");
 
 unsigned int sculll_quantum=400;
-unsigned int sculll_qset=100;
+//unsigned int sculll_qset=100;
 
 unsigned int sculll_major=0;
 unsigned int sculll_minor=0;
@@ -39,6 +38,7 @@ struct sculll_dev {
     struct semaphore sem;
     struct cdev cdev;
 };
+
 struct sculll_dev *lll_dev;
 
 struct sculll_qset *sculll_follow(struct sculll_dev *dev,int n)
@@ -89,7 +89,7 @@ int sculll_trim(struct sculll_dev *dev)
     }
     dev->size = 0;
     dev->quantum = sculll_quantum;
-    dev->qset = sculll_qset;
+    dev->qset =100;// sculll_qset;
     dev->data = NULL;
     return 0;
 }
@@ -115,6 +115,12 @@ ssize_t sculll_read(struct file *filp,char __user *buf,size_t count,loff_t *f_op
 
     s_pos = rest / quantum;
     q_pos = rest % quantum;
+    printk(KERN_ALERT "itemsize =  %d ",itemsize);
+    printk(KERN_ALERT "item =  %d ",item);
+    printk(KERN_ALERT "s_pos =  %d ",s_pos);
+    printk(KERN_ALERT "q_pos =  %d ",q_pos);
+    printk(KERN_ALERT "count =  %d ",count);
+    printk(KERN_ALERT "f_ops =  %d ",*f_ops);
 
     dptr = sculll_follow(dev,item);
     if(dptr == NULL || !dptr->data || ! dptr->data[s_pos])
@@ -130,6 +136,7 @@ ssize_t sculll_read(struct file *filp,char __user *buf,size_t count,loff_t *f_op
     }
     *f_ops += count;
     retval = count;
+    printk(KERN_ALERT "retval =  %d ",retval);
 out:
     up(&dev->sem);
     return retval;
@@ -151,6 +158,12 @@ ssize_t sculll_write(struct file * filp , const char __user *buf,size_t count,lo
     rest = (long)*f_ops % itemsize;
     s_pos = rest / quantum;
     q_pos = rest % quantum;
+    printk(KERN_ALERT "itemsize =  %d ",itemsize);
+    printk(KERN_ALERT "item =  %d ",item);
+    printk(KERN_ALERT "s_pos =  %d ",s_pos);
+    printk(KERN_ALERT "q_pos =  %d ",q_pos);
+    printk(KERN_ALERT "count =  %d ",count);
+    printk(KERN_ALERT "f_ops =  %d ",*f_ops);
     dptr = sculll_follow(dev,item);
     if(dptr == NULL)
         goto out;
@@ -177,6 +190,7 @@ ssize_t sculll_write(struct file * filp , const char __user *buf,size_t count,lo
     }
     *f_ops += count;
     retval = count;
+    printk(KERN_ALERT "retval =  %d ",retval);
 
     if(dev->size < *f_ops)
         dev->size = *f_ops;
@@ -191,7 +205,6 @@ int sculll_open(struct inode *inode,struct file *filp)
     printk(KERN_ALERT "%s,%s ",__FILE__,__FUNCTION__);
     dev = container_of(inode->i_cdev,struct sculll_dev,cdev);
     filp->private_data = dev;
-    printk(KERN_ALERT "sculll_open ");
     if((filp->f_flags & O_ACCMODE)==O_WRONLY)
     {
         sculll_trim(dev);
@@ -217,8 +230,24 @@ static struct file_operations sculll_fops={
 static int scull_init(void)
 {
     dev_t dn;
+    //    struct cdev *cdev = cdev_alloc();
     printk(KERN_ALERT "%s,%s ",__FILE__,__FUNCTION__);
-    if(alloc_chrdev_region(&dev,sculll_minor,1,"proc-scull"))
+    printk(KERN_ALERT "lll_dev req size = %d ",sizeof(struct sculll_dev));
+    printk(KERN_ALERT "cdev req size = %d ",sizeof(struct cdev));
+    printk(KERN_ALERT "sem req size = %d ",sizeof(struct semaphore));
+    printk(KERN_ALERT "qset req size = %d ",sizeof(struct sculll_qset));
+    lll_dev = kmalloc(sizeof(struct sculll_dev),GFP_KERNEL);
+    if(!lll_dev)
+    {
+        printk(KERN_ALERT"kmalloc lll_dev fail");
+        return 0;
+    }
+    memset(lll_dev,0,sizeof(struct sculll_dev));
+    lll_dev->quantum = sculll_quantum;
+    //init_MUTEX(&(lll_dev->sem);
+    sema_init(&(lll_dev->sem),1);
+
+    if(alloc_chrdev_region(&dev,sculll_minor,1,"scull"))
     {
         printk(KERN_ALERT "register chrdev region is fail");
     }
@@ -230,7 +259,7 @@ static int scull_init(void)
 
     dn = MKDEV(sculll_major,sculll_minor);
 
-    sculll_class = class_create(THIS_MODULE,"sys-lll_class");
+    sculll_class = class_create(THIS_MODULE,"lll_class");
     if(IS_ERR(sculll_class))
     {
         printk(KERN_ALERT"err: fial in create class");
@@ -241,7 +270,7 @@ static int scull_init(void)
     {
         printk(KERN_ALERT"success create class");
     }
-    if(NULL == device_create(sculll_class,NULL,dn,NULL,"dev-sculll0"))
+    if(NULL == device_create(sculll_class,NULL,dn,NULL,"scull"))
     {
         printk(KERN_ALERT"erro create device");
         class_destroy(sculll_class);
@@ -254,7 +283,8 @@ static int scull_init(void)
         printk(KERN_ALERT"success create device");
     }
 
-    cdev_init(&lll_dev->cdev,&sculll_fops);
+    cdev_init(&(lll_dev->cdev),&sculll_fops);
+    //    lll_dev->cdev = cdev_alloc();
     lll_dev->cdev.owner = THIS_MODULE;
     lll_dev->cdev.ops = &sculll_fops;
     if(cdev_add(&lll_dev->cdev,dn,1))
@@ -284,7 +314,6 @@ static void scull_exit(void)
     unregister_chrdev_region(dn,1);
     printk(KERN_ERR"exit");
 }
-
 
 module_init(scull_init);
 module_exit(scull_exit);
